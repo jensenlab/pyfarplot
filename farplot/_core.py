@@ -631,6 +631,10 @@ def pub_farplot(data, response, scale=1.0, **kwargs):
     kwargs.setdefault("show_key", True)
     kwargs.setdefault("response_color", "black")
     kwargs.setdefault("response_marker", "o")
-    rc = {"font.family": "sans-serif", "font.sans-serif": ["Arial", "DejaVu Sans"]}
-    with plt.rc_context(rc):
-        return farplot(data, response, **kwargs)
+    fig = farplot(data, response, **kwargs)
+    # rc_context can't be used here because matplotlib resolves fonts lazily
+    # at render time (savefig), after the context would have already exited.
+    # Instead, set the font family directly on every text object in the figure.
+    for artist in fig.findobj(plt.Text):
+        artist.set_fontfamily(["Arial", "DejaVu Sans"])
+    return fig
