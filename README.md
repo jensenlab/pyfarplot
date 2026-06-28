@@ -39,7 +39,21 @@ pyfarplot is a Python port of the `farplot` function from the R
 ## Installation
 
 ```bash
-pip install -e .          # from the repo root (editable install)
+pip install git+https://github.com/jensenlab/pyfarplot.git
+```
+
+To update to the latest version:
+
+```bash
+pip install --upgrade git+https://github.com/jensenlab/pyfarplot.git
+```
+
+For development (editable install from a local clone):
+
+```bash
+git clone https://github.com/jensenlab/pyfarplot.git
+cd pyfarplot
+pip install -e .
 ```
 
 ---
