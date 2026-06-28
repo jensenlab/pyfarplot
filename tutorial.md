@@ -23,7 +23,7 @@ pip install -e .          # from the repo root (editable install)
 
 ```python
 import pandas as pd
-from farplot import farplot, pub_farplot
+from farplot import farplot
 
 df = pd.DataFrame({
     "A": [-1,  1, -1,  1, -1,  1, -1,  1],
@@ -37,7 +37,8 @@ fig.savefig("farplot.png", dpi=150, bbox_inches="tight")
 ```
 
 The `data` argument is a DataFrame whose columns are factors plus one response
-column. The response column is identified by name with `response=`.
+column. The response column is identified by name with `response=`. Treatments
+are sorted left-to-right by response by default.
 
 ---
 
@@ -80,51 +81,88 @@ farplot(df, response="y",
 The default `cell_style="symbol"` mode renders each factor cell as a text
 character (+/−/0) or a sized circle.
 
+### Sign factors
+
+Two-level (±1) and three-level (−1/0/+1) factors are displayed as colored
+characters. Treatments are sorted by the response so factors that correlate
+strongly with the outcome are easy to spot.
+
 ```python
-fig = farplot(
-    df,
-    response="y",
-    cell_style="symbol",    # default
-    color_signs=True,       # color +/−/0 by sign (red/gray/black)
-    factor_colors=("red", "gray", "black"),
-    factor_fills=("red", "white", "black"),
-    normalize="all",        # scale continuous factors to a common range
-    size_transform="sqrt",  # circle area ∝ |value|
-)
+fig = farplot(chem, response="y")
 ```
+
+![Sign factors](docs/images/tut_01_sign.png)
 
 ### Replicate stacking
 
 When the same treatment appears more than once, `stack_replicates=True`
-(default) collapses the duplicates into a single column and shows all
-individual response values stacked above it. A horizontal tick marks the mean.
+(default) collapses the duplicates into a single column and stacks all
+individual response values above it. A horizontal tick marks the mean.
 
 ```python
 fig = farplot(reps, response="y", stack_replicates=True)
 ```
+
+![Replicate stacking](docs/images/tut_02_replicates.png)
+
+### Continuous factors
+
+Continuous factors are rendered as circles whose **size** encodes |value| and
+whose **color** encodes sign (red = negative, black = positive). With
+`normalize="all"` (default), all continuous factors share a common scale.
+
+```python
+fig = farplot(
+    cont,
+    response="yield",
+    factor_type="continuous",
+    normalize="all",
+)
+```
+
+![Continuous factors](docs/images/tut_03_continuous.png)
+
+### Mixed factor types
+
+A design can contain any combination of sign, continuous, and categorical
+factors. Specify types with a dict for full control:
+
+```python
+fig = farplot(
+    mixed,
+    response="conv",
+    factor_type={"catalyst": "factor", "temp": "sign", "time": "continuous"},
+)
+```
+
+![Mixed factor types](docs/images/tut_04_mixed.png)
 
 ---
 
 ## Heatmap style
 
 `cell_style="heatmap"` fills each cell with a color from a colormap instead
-of drawing symbols. This is cleaner for publication figures.
+of drawing symbols. This is cleaner for publication figures and makes the
+pattern across many runs easier to read at a glance.
 
 ```python
 fig = farplot(
-    df,
+    chem,
     response="y",
     cell_style="heatmap",
-    cmap="RdBu_r",      # diverging colormap: red=low, blue=high
-    show_grid=True,     # draw cell outlines
-    show_key=True,      # show per-row legend to the right
-    clean_axes=True,    # remove top/right spines from response panel
+    cmap="RdBu_r",
+    show_grid=True,
+    show_key=True,
+    clean_axes=True,
+    response_color="black",
 )
 ```
 
-For sign factors the colormap is anchored so the midpoint (zero, white by
-default for `"RdBu_r"`) corresponds to zero. For continuous factors the
-colormap spans the observed range with the midpoint at zero.
+![Heatmap style](docs/images/tut_05_heatmap.png)
+
+For sign factors the colormap is anchored so the midpoint (white in `"RdBu_r"`)
+corresponds to zero. For continuous factors the colormap spans the observed
+range with the midpoint at zero.
 
 ### Colormaps
 
@@ -135,18 +173,18 @@ values have the same sign.
 
 #### Per-factor colormaps
 
-Pass a dict to give each factor its own colormap. The `"default"` key
-covers any factor not listed explicitly:
+Pass a dict to give each factor its own colormap. The `"default"` key covers
+any factor not listed:
 
 ```python
 fig = pub_farplot(
-    df,
+    cont,
     response="yield",
     factor_type="continuous",
     cmap={
-        "temp":    "RdYlBu_r",
+        "temp":     "RdYlBu_r",
         "pressure": "PuOr",
-        "default": "RdBu_r",   # 'time' uses this
+        "default":  "RdBu_r",   # 'time' uses this
     },
 )
 ```
@@ -155,56 +193,94 @@ fig = pub_farplot(
 
 ## pub_farplot — publication-ready defaults
 
-`pub_farplot()` is a thin wrapper around `farplot()` that sets compact,
-publication-ready defaults:
-
-| Parameter | pub_farplot default | farplot default |
-|---|---|---|
-| `cell_style` | `"heatmap"` | `"symbol"` |
-| `cmap` | `"binary"` | `"RdBu_r"` |
-| `cell_size` | `0.168` in | `0.45` in |
-| `response_height` | `0.9` in | `2.5` in |
-| `clean_axes` | `True` | `False` |
-| `show_grid` | `True` | `False` |
-| `show_key` | `True` | `False` |
-| `response_color` | `"black"` | `"orange"` |
-
-The `"binary"` colormap maps −1 → white and +1 → black, which is ideal for
-two-level (±1) factorial designs.
+`pub_farplot()` is a wrapper around `farplot()` with compact, clean defaults
+suited for publication figures: small cells, heatmap fill, open axes, and a
+key legend.
 
 ```python
-fig = pub_farplot(df, response="y")
+from farplot import pub_farplot
+
+fig = pub_farplot(chem, response="y")
 ```
 
-Any `farplot()` parameter can be passed as a keyword argument to override the
-default:
+![pub_farplot — sign factors](docs/images/tut_06_pub_sign.png)
+
+The `"binary"` colormap (white = −1, black = +1) is the default, making
+two-level factorial designs particularly clean.
+
+### Continuous factors with pub_farplot
 
 ```python
-fig = pub_farplot(df, response="y", cmap="PiYG", show_grid=False)
+fig = pub_farplot(
+    cont,
+    response="yield",
+    factor_type="continuous",
+    cmap="RdBu_r",
+)
 ```
 
-### Scale
+![pub_farplot — continuous factors](docs/images/tut_07_pub_continuous.png)
 
-The `scale` parameter uniformly adjusts `cell_size` and `response_height` so
-you can grow or shrink the whole figure:
+### Per-factor colormaps with pub_farplot
 
 ```python
-fig = pub_farplot(df, response="y", scale=0.7)   # more compact
-fig = pub_farplot(df, response="y", scale=1.5)   # larger
+fig = pub_farplot(
+    cont,
+    response="yield",
+    factor_type="continuous",
+    cmap={
+        "temp":     "RdYlBu_r",
+        "pressure": "PuOr",
+        "default":  "RdBu_r",
+    },
+)
 ```
+
+![pub_farplot — per-factor colormaps](docs/images/tut_08_pub_percmap.png)
+
+### Mixed types with pub_farplot
+
+```python
+fig = pub_farplot(
+    mixed,
+    response="conv",
+    factor_type={"catalyst": "factor", "temp": "sign", "time": "continuous"},
+    cmap={"time": "viridis", "default": "binary"},
+)
+```
+
+![pub_farplot — mixed types](docs/images/tut_09_pub_mixed.png)
 
 ---
 
 ## The key (legend)
 
 When `show_key=True` and `cell_style="heatmap"`, a legend panel is drawn to
-the right of the factor grid. Each row of the legend matches the corresponding
-factor row.
+the right of the factor grid. Each row matches the corresponding factor:
 
-- **Sign factors**: one colored square per level, with the level value beside
+- **Sign factors**: one colored square per level with the level value beside
   it (e.g. `□ -1  ■ 1`).
 - **Continuous factors**: a gradient strip with the minimum value on the left
   and the maximum value on the right (e.g. `-1 [▓░░▒▒▓] 1`).
+
+Per-factor colormaps are reflected in the key — each row uses its own colors.
+
+---
+
+## Scale
+
+The `scale` parameter in `pub_farplot()` uniformly adjusts `cell_size` and
+`response_height` so you can grow or shrink the whole figure proportionally:
+
+```python
+fig = pub_farplot(df, response="y", scale=0.7)   # compact
+fig = pub_farplot(df, response="y", scale=1.0)   # default
+fig = pub_farplot(df, response="y", scale=1.5)   # larger
+```
+
+| `scale=0.7` | `scale=1.0` | `scale=1.5` |
+|---|---|---|
+| ![scale 0.7](docs/images/tut_10_scale0.7.png) | ![scale 1.0](docs/images/tut_10_scale1.0.png) | ![scale 1.5](docs/images/tut_10_scale1.5.png) |
 
 ---
 
@@ -237,7 +313,7 @@ fig = farplot(df, response="y", savefig="result.svg")
 fig = farplot(df, response="y",
               savefig=["result.svg", "result.pdf", "result.png"], dpi=300)
 
-# Or use the returned Figure object
+# Or use the returned Figure object directly
 fig = farplot(df, response="y")
 fig.savefig("result.svg", bbox_inches="tight")
 ```
@@ -287,3 +363,16 @@ Accepts all `farplot()` parameters plus:
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `scale` | float | `1.0` | Uniform size multiplier for cells and response panel |
+
+`pub_farplot` defaults that differ from `farplot`:
+
+| Parameter | `pub_farplot` default |
+|---|---|
+| `cell_style` | `"heatmap"` |
+| `cmap` | `"binary"` |
+| `cell_size` | `0.168` in |
+| `response_height` | `0.9` in |
+| `clean_axes` | `True` |
+| `show_grid` | `True` |
+| `show_key` | `True` |
+| `response_color` | `"black"` |
