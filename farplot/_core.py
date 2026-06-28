@@ -11,6 +11,8 @@ publication-quality output.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.colors as mcolors
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +53,13 @@ def _abbreviate(levels, n_chars):
     return result
 
 
+def _make_norm(vmin, vmax, vcenter=0.0):
+    """TwoSlopeNorm when values span zero, plain Normalize otherwise."""
+    if vmin < vcenter < vmax:
+        return mcolors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+    return mcolors.Normalize(vmin=vmin, vmax=vmax)
+
+
 def guess_factor_type(series):
     """
     Infer the display type for a single factor column.
@@ -75,7 +84,7 @@ def farplot(
     response,
     factors=None,
     factor_type=None,
-    # factor appearance
+    # factor appearance — symbol mode
     factor_colors=("red", "gray", "black"),
     factor_fills=("red", "white", "black"),
     color_signs=True,
@@ -84,6 +93,10 @@ def farplot(
     zero_size=0.1,
     size_transform="sqrt",
     normalize="all",
+    # factor appearance — heatmap mode
+    cell_style="symbol",
+    cmap="RdBu_r",
+    show_key=False,
     # response / ordering
     order_response=True,
     stack_replicates=True,
@@ -96,6 +109,7 @@ def farplot(
     cell_size=0.45,
     response_height=2.5,
     show_grid=False,
+    clean_axes=False,
     figsize=None,
     # output
     savefig=None,
@@ -117,28 +131,44 @@ def farplot(
         ``'factor'``. A single string applies to all factors. A list must
         match the order of *factors*. Default: auto-detected.
     factor_colors : tuple of str
-        (negative, zero, positive) outline/text colors. Default:
-        ``('red', 'gray', 'black')``.
+        (negative, zero, positive) outline/text colors for symbol mode.
+        Default: ``('red', 'gray', 'black')``.
     factor_fills : tuple of str
-        (negative, zero, positive) fill colors for continuous symbols.
-        Default: ``('red', 'white', 'black')``.
+        (negative, zero, positive) fill colors for continuous symbols in
+        symbol mode. Default: ``('red', 'white', 'black')``.
     color_signs : bool
-        Color ``+``/``0``/``−`` characters by sign. Default: True.
+        Color ``+``/``0``/``−`` characters by sign in symbol mode.
+        Default: True.
     label_chars : int
         Characters used to abbreviate categorical factor levels. Default: 2.
     factor_size : float, optional
-        Maximum scatter marker area (points²) for continuous symbols.
-        Default: auto-sized to fit within a cell.
+        Maximum scatter marker area (points²) for continuous symbols in
+        symbol mode. Default: auto-sized to fit within a cell.
     zero_size : float
-        Relative size (0–1) of continuous zero markers. Default: 0.1.
+        Relative size (0–1) of continuous zero markers in symbol mode.
+        Default: 0.1.
     size_transform : {'sqrt', None} or callable
-        Transform applied to scaled continuous values before sizing.
-        ``'sqrt'`` makes symbol *area* proportional to factor level.
+        Transform applied to scaled continuous values before sizing in symbol
+        mode. ``'sqrt'`` makes symbol *area* proportional to factor level.
         Default: ``'sqrt'``.
     normalize : {'all', 'row'}
         Normalization scope for continuous factors. ``'all'`` scales against
         the global maximum across all continuous factors (default). ``'row'``
         scales each factor independently.
+    cell_style : {'symbol', 'heatmap'}
+        How factor cells are rendered. ``'symbol'`` (default) draws ``+``/
+        ``−`` text and sized circles. ``'heatmap'`` fills each cell with a
+        color from *cmap* — diverging from white at zero through saturated
+        colors at the extremes. Categorical (``'factor'``) columns always use
+        text labels regardless of this setting.
+    cmap : str or Colormap
+        Colormap used in ``cell_style='heatmap'`` mode. A diverging colormap
+        (e.g. ``'RdBu_r'``, ``'PiYG'``) works well when factor values span
+        both negative and positive. For purely positive factors a sequential
+        map such as ``'Blues'`` is a good choice. Default: ``'RdBu_r'``.
+    show_key : bool
+        Draw a horizontal colorbar below the factor grid (only meaningful
+        when ``cell_style='heatmap'``). Default: False.
     order_response : bool
         Sort treatments by the response statistic. Default: True.
     stack_replicates : bool
@@ -162,6 +192,9 @@ def farplot(
         Height of the response panel in inches. Default: 2.5.
     show_grid : bool
         Draw cell border lines in the factor grid. Default: False.
+    clean_axes : bool
+        Remove the top and right spines from the response panel for a
+        minimal, publication-ready look. Default: False.
     figsize : tuple, optional
         ``(width, height)`` in inches. Default: auto-computed from *cell_size*.
     savefig : str or list of str, optional
@@ -264,10 +297,18 @@ def farplot(
     if global_max < 1e-10:
         global_max = 1.0
 
+    # ------------------------------------------ key panel sizing (pre-layout)
+    if show_key and cell_style == "heatmap":
+        _key_gap_r = 0.06                           # gap right of factor grid
+        _key_panel_w = max(6.0 * cell_size, 0.9)   # key panel width in inches
+    else:
+        _key_gap_r = 0.0
+        _key_panel_w = 0.0
+
     # ------------------------------------------------------ figure layout
     cell = cell_size          # inches per cell
     left_pad = 1.5            # room for factor labels
-    right_pad = 0.35
+    right_pad = 0.35 + (_key_gap_r + _key_panel_w if (show_key and cell_style == "heatmap") else 0)
     top_pad = 0.25
     bot_pad = 0.30
     vgap = 0.06               # gap between panels
@@ -302,7 +343,6 @@ def farplot(
     # ----------------------------------------------- symbol size defaults
     cell_pts = cell * 72.0    # cell size in typographic points
     if factor_size is None:
-        # max circle diameter ≈ 75 % of cell; s = π*(d/2)²
         d_pts = cell_pts * 0.75
         factor_size = np.pi * (d_pts / 2) ** 2
 
@@ -324,7 +364,7 @@ def farplot(
         )
 
     if show_stat:
-        hw = 0.28   # half-width of stat tick in data units
+        hw = 0.28
         for xi, ys in zip(x_pos, y_stats_plot):
             ax_r.plot(
                 [xi - hw, xi + hw], [ys, ys],
@@ -344,36 +384,72 @@ def farplot(
     ax_r.tick_params(axis="y", labelsize=8)
     ax_r.spines["bottom"].set_visible(False)
 
+    if clean_axes:
+        ax_r.spines["top"].set_visible(False)
+        ax_r.spines["right"].set_visible(False)
+
     # ================================================== factor grid
     ax_f.set_xlim(0.5, n_cols + 0.5)
     ax_f.set_ylim(0.0, n_factors)
 
-    # Y-axis: factor labels at row centres; top factor = factor_cols[0]
     tick_ys = np.arange(n_factors) + 0.5
-    # factor_cols[0] is the topmost row → y = n_factors - 0.5
     ax_f.set_yticks(tick_ys)
     ax_f.set_yticklabels(factor_cols[::-1], fontsize=9)
     ax_f.tick_params(axis="y", length=0, pad=3)
     ax_f.set_xticks([])
 
-    # Cell borders
     if show_grid:
         lw = 0.5
         for xb in np.arange(0.5, n_cols + 1.0, 1.0):
-            ax_f.axvline(xb, color="black", linewidth=lw, zorder=1)
+            ax_f.axvline(xb, color="black", linewidth=lw, zorder=3)
         for yb in np.arange(0.0, n_factors + 1.0, 1.0):
-            ax_f.axhline(yb, color="black", linewidth=lw, zorder=1)
+            ax_f.axhline(yb, color="black", linewidth=lw, zorder=3)
+
+    # ----------------------------------------- heatmap colormap setup
+    _default_cmap_name = "RdBu_r"
+    def _get_cmap(col):
+        if not isinstance(cmap, dict):
+            src = cmap
+        else:
+            src = cmap.get(col, cmap.get("default", _default_cmap_name))
+        return plt.get_cmap(src) if isinstance(src, str) else src
 
     # ------------------------------------------------- per-factor rows
     for fi, col in enumerate(factor_cols):
-        # Row 0 in data coords is the BOTTOM row; factor_cols[0] is the TOP.
         row_y = n_factors - fi - 0.5
         ftype = ftypes[col]
+        _cmap = _get_cmap(col) if cell_style == "heatmap" else None
 
-        if ftype == "sign":
+        # ---- heatmap rendering (sign + continuous only) ----
+        if cell_style == "heatmap" and ftype in ("sign", "continuous"):
+            if ftype == "sign":
+                norm = _make_norm(-1.0, 1.0)
+                for xi, x in enumerate(x_pos):
+                    s = _to_sign(X_plot[col].iloc[xi])
+                    color = _cmap(norm(float(s)))
+                    rect = mpatches.Rectangle(
+                        (x - 0.5, row_y - 0.5), 1.0, 1.0,
+                        facecolor=color, edgecolor="none", zorder=2,
+                    )
+                    ax_f.add_patch(rect)
+
+            else:  # continuous
+                vals = pd.to_numeric(X_plot[col], errors="coerce").values.astype(float)
+                col_max = global_max if normalize == "all" else max(np.nanmax(np.abs(vals)), 1e-10)
+                norm = _make_norm(-col_max, col_max)
+                for xi, (x, val) in enumerate(zip(x_pos, vals)):
+                    color = _cmap(norm(val))
+                    rect = mpatches.Rectangle(
+                        (x - 0.5, row_y - 0.5), 1.0, 1.0,
+                        facecolor=color, edgecolor="none", zorder=2,
+                    )
+                    ax_f.add_patch(rect)
+
+        # ---- symbol rendering ----
+        elif ftype == "sign":
             for xi, x in enumerate(x_pos):
                 s = _to_sign(X_plot[col].iloc[xi])
-                char = {-1: "−", 0: "0", 1: "+"}[s]   # − 0 +
+                char = {-1: "−", 0: "0", 1: "+"}[s]
                 color = factor_colors[s + 1] if color_signs else "black"
                 ax_f.text(
                     x, row_y, char,
@@ -425,6 +501,82 @@ def farplot(
         else:
             raise ValueError(f"Unknown factor_type '{ftype}' for column '{col}'")
 
+    # ---------------------------------------- per-row key panel
+    if show_key and cell_style == "heatmap":
+        ax_k = fig.add_axes([
+            (left_pad + grid_w + _key_gap_r) / fw,
+            bot_pad / fh,
+            _key_panel_w / fw,
+            grid_h / fh,
+        ])
+        ax_k.set_xlim(0.0, 1.0)
+        ax_k.set_ylim(0.0, n_factors)
+        ax_k.set_axis_off()
+
+        # Square height in y-data units; width scaled to appear ~square in figure space
+        sq_h = 0.55
+        sq_w = sq_h * cell_size / _key_panel_w
+        lbl_fs = sign_fontsize * 0.80
+
+        for fi, col in enumerate(factor_cols):
+            row_y = n_factors - fi - 0.5
+            ftype = ftypes[col]
+            _cmap = _get_cmap(col)
+
+            if ftype == "sign":
+                present = sorted({_to_sign(v) for v in X_plot[col]})
+                n_lvl = len(present)
+                step = 1.0 / n_lvl
+                row_norm = _make_norm(-1.0, 1.0)
+                for i, lv in enumerate(present):
+                    x_c = (i + 0.5) * step
+                    x0 = x_c - sq_w / 2
+                    color = _cmap(row_norm(float(lv)))
+                    ax_k.add_patch(mpatches.Rectangle(
+                        (x0, row_y - sq_h / 2), sq_w, sq_h,
+                        facecolor=color, edgecolor="black", linewidth=0.3, zorder=2,
+                    ))
+                    ax_k.text(
+                        x0 + sq_w + 0.015, row_y, str(int(lv)),
+                        ha="left", va="center", fontsize=lbl_fs, clip_on=False,
+                    )
+
+            elif ftype == "continuous":
+                col_max_k = global_max if normalize == "all" else max(
+                    float(np.nanmax(np.abs(pd.to_numeric(X_plot[col], errors="coerce").values))),
+                    1e-10,
+                )
+                row_norm = _make_norm(-col_max_k, col_max_k)
+                lbl_lo = f"{-col_max_k:.2g}"
+                lbl_hi = f"{col_max_k:.2g}"
+
+                # Estimate text widths in x-data units (~0.055 per character)
+                char_w = 0.055
+                gap = 0.025
+                bar_x0 = len(lbl_lo) * char_w + gap
+                bar_x1 = 1.0 - len(lbl_hi) * char_w - gap
+                bar_w = max(bar_x1 - bar_x0, 0.1)
+
+                # Gradient strip: 40 thin rectangles
+                N = 40
+                for j in range(N):
+                    t = j / (N - 1)
+                    color = _cmap(row_norm(-col_max_k + 2 * col_max_k * t))
+                    ax_k.add_patch(mpatches.Rectangle(
+                        (bar_x0 + j * bar_w / N, row_y - sq_h / 2),
+                        bar_w / N, sq_h,
+                        facecolor=color, edgecolor="none", zorder=2,
+                    ))
+                # Outline around gradient strip
+                ax_k.add_patch(mpatches.Rectangle(
+                    (bar_x0, row_y - sq_h / 2), bar_w, sq_h,
+                    facecolor="none", edgecolor="black", linewidth=0.3, zorder=3,
+                ))
+                ax_k.text(bar_x0 - gap, row_y, lbl_lo,
+                          ha="right", va="center", fontsize=lbl_fs)
+                ax_k.text(bar_x1 + gap, row_y, lbl_hi,
+                          ha="left", va="center", fontsize=lbl_fs)
+
     # ---------------------------------------------------------- save / return
     if savefig is not None:
         if isinstance(savefig, str):
@@ -433,3 +585,43 @@ def farplot(
             fig.savefig(fname, dpi=dpi, bbox_inches="tight")
 
     return fig
+
+
+# ---------------------------------------------------------------------------
+# Publication-ready convenience wrapper
+# ---------------------------------------------------------------------------
+
+def pub_farplot(data, response, scale=1.0, **kwargs):
+    """
+    farplot() with publication-ready defaults.
+
+    Identical to :func:`farplot` but with smaller cells, a heatmap color fill
+    for factor cells, clean open axes (no top/right spines on the response
+    panel), a compact response panel, and grid lines on by default.
+
+    All parameters accepted by :func:`farplot` can be passed as keyword
+    arguments to override the defaults set here.
+
+    Parameters
+    ----------
+    scale : float
+        Uniform size multiplier applied to ``cell_size`` and
+        ``response_height``. Values below 1.0 make the figure more compact;
+        values above 1.0 make it larger. Default: 1.0.
+
+    Examples
+    --------
+    >>> pub_farplot(df, response="y")
+    >>> pub_farplot(df, response="y", scale=0.7)
+    >>> pub_farplot(df, response="y", cmap="Blues", show_grid=False)
+    """
+    kwargs.setdefault("cell_style", "heatmap")
+    kwargs.setdefault("cmap", "binary")
+    kwargs.setdefault("cell_size", 0.168 * scale)
+    kwargs.setdefault("response_height", 0.9 * scale)
+    kwargs.setdefault("clean_axes", True)
+    kwargs.setdefault("show_grid", True)
+    kwargs.setdefault("show_key", True)
+    kwargs.setdefault("response_color", "black")
+    kwargs.setdefault("response_marker", "o")
+    return farplot(data, response, **kwargs)
