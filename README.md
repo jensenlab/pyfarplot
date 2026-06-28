@@ -234,8 +234,10 @@ fig = pub_farplot(
 ## pub_farplot — publication-ready defaults
 
 `pub_farplot()` is a wrapper around `farplot()` with compact, clean defaults
-suited for publication figures: small cells, heatmap fill, open axes, and a
-key legend.
+suited for publication figures: small cells, heatmap fill, open axes, a key
+legend, and **Arial font** (falling back to DejaVu Sans if Arial is not
+installed). The font change is scoped to `pub_farplot` and does not affect
+other matplotlib plots in the same session.
 
 ```python
 from farplot import pub_farplot
@@ -428,3 +430,4 @@ Accepts all `farplot()` parameters plus:
 | `show_grid` | `True` |
 | `show_key` | `True` |
 | `response_color` | `"black"` |
+| font | Arial (DejaVu Sans fallback) |
