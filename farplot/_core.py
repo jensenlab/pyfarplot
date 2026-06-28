@@ -516,7 +516,7 @@ def farplot(
         # Square height in y-data units; width scaled to appear ~square in figure space
         sq_h = 0.55
         sq_w = sq_h * cell_size / _key_panel_w
-        lbl_fs = sign_fontsize * 0.80
+        lbl_fs = 7.0  # fixed, like other axis-type text in the figure
 
         for fi, col in enumerate(factor_cols):
             row_y = n_factors - fi - 0.5
