@@ -31,6 +31,7 @@ pyfarplot is a Python port of the `farplot` function from the R
 - [The key (legend)](#the-key-legend)
 - [Scale](#scale)
 - [Response ordering and statistics](#response-ordering-and-statistics)
+  - [Response axis limits](#response-axis-limits)
 - [Saving figures](#saving-figures)
 - [Full parameter reference](#full-parameter-reference)
 
@@ -336,6 +337,17 @@ fig = farplot(df, response="y", order_response=False)
 Available statistics: `"mean"` (default), `"median"`, `"min"`, `"max"`, or
 any callable that takes an array and returns a scalar.
 
+### Response axis limits
+
+By default the y-axis is auto-scaled with a small margin around the data.
+Use `ylim` to fix the limits — useful when comparing multiple farplots on a
+common scale:
+
+```python
+for df in [experiment_1, experiment_2]:
+    pub_farplot(df, response="y", ylim=(0, 100))
+```
+
 ---
 
 ## Saving figures
@@ -391,6 +403,7 @@ fig.savefig("result.svg", bbox_inches="tight")
 | `response_height` | float | `2.5` | Response panel height in inches |
 | `show_grid` | bool | `False` | Draw cell outlines |
 | `clean_axes` | bool | `False` | Remove top/right spines from response panel |
+| `ylim` | tuple | auto | `(ymin, ymax)` limits for the response axis |
 | `figsize` | tuple | auto | `(width, height)` in inches |
 | `savefig` | str / list | `None` | Output filename(s) |
 | `dpi` | int | `150` | DPI for raster output |
