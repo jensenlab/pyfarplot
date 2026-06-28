@@ -11,6 +11,31 @@ pyfarplot is a Python port of the `farplot` function from the R
 
 ---
 
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Factor types](#factor-types)
+- [Symbol style (default)](#symbol-style-default)
+  - [Sign factors](#sign-factors)
+  - [Replicate stacking](#replicate-stacking)
+  - [Continuous factors](#continuous-factors)
+  - [Mixed factor types](#mixed-factor-types)
+- [Heatmap style](#heatmap-style)
+  - [Colormaps](#colormaps)
+  - [Per-factor colormaps](#per-factor-colormaps)
+- [pub\_farplot — publication-ready defaults](#pub_farplot--publication-ready-defaults)
+  - [Continuous factors with pub\_farplot](#continuous-factors-with-pub_farplot)
+  - [Per-factor colormaps with pub\_farplot](#per-factor-colormaps-with-pub_farplot)
+  - [Mixed types with pub\_farplot](#mixed-types-with-pub_farplot)
+- [The key (legend)](#the-key-legend)
+- [Scale](#scale)
+- [Response ordering and statistics](#response-ordering-and-statistics)
+- [Saving figures](#saving-figures)
+- [Full parameter reference](#full-parameter-reference)
+
+---
+
 ## Installation
 
 ```bash
