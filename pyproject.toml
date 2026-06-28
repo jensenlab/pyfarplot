@@ -7,6 +7,7 @@ name = "farplot"
 version = "0.1.0"
 description = "Factor-and-response plots for designed experiments"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.9"
 dependencies = [
     "numpy",
