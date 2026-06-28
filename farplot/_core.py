@@ -110,6 +110,7 @@ def farplot(
     response_height=2.5,
     show_grid=False,
     clean_axes=False,
+    ylim=None,
     figsize=None,
     # output
     savefig=None,
@@ -195,6 +196,9 @@ def farplot(
     clean_axes : bool
         Remove the top and right spines from the response panel for a
         minimal, publication-ready look. Default: False.
+    ylim : tuple of (float, float), optional
+        ``(ymin, ymax)`` limits for the response axis. Default: auto-scaled
+        with a small margin around the data.
     figsize : tuple, optional
         ``(width, height)`` in inches. Default: auto-computed from *cell_size*.
     savefig : str or list of str, optional
@@ -377,7 +381,10 @@ def farplot(
     y_all = np.concatenate(y_groups_plot)
     yrange = y_all.max() - y_all.min() if y_all.max() != y_all.min() else 1.0
     margin = yrange * 0.08
-    ax_r.set_ylim(y_all.min() - margin, y_all.max() + margin)
+    if ylim is not None:
+        ax_r.set_ylim(ylim)
+    else:
+        ax_r.set_ylim(y_all.min() - margin, y_all.max() + margin)
     ax_r.set_xlim(0.5, n_cols + 0.5)
     ax_r.set_ylabel(response, fontsize=10)
     ax_r.tick_params(axis="x", bottom=False, labelbottom=False)
